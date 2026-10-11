@@ -47,3 +47,11 @@ def test_post_job_installs_hash_pinned_requirements():
 def test_submit_step_knows_the_bot_login():
     wf = (ROOT / ".github/workflows/require-claude-review.yml").read_text()
     assert "BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]" in wf
+
+
+def test_schema_passed_to_claude_has_no_dollar_schema():
+    # Claude Code's --json-schema validator rejects the 2020-12 "$schema" meta-schema
+    # reference (homelab#10 smoke test); decide.py keeps validating with the full file.
+    wf = (ROOT / ".github/workflows/require-claude-review.yml").read_text()
+    assert """jq -c 'del(."$schema")' trusted/review/verdict.schema.json""" in wf
+    assert "jq -c . trusted/review/verdict.schema.json" not in wf

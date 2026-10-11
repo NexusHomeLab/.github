@@ -70,7 +70,7 @@ jobs:
       - name: Load the verdict schema
         if: steps.mode.outputs.run == 'true'
         id: schema
-        run: echo "json=$(jq -c . trusted/review/verdict.schema.json)" >> "$GITHUB_OUTPUT"
+        run: echo "json=$(jq -c 'del(."$schema")' trusted/review/verdict.schema.json)" >> "$GITHUB_OUTPUT"
       - name: Claude review
         if: steps.mode.outputs.run == 'true'
         id: claude
