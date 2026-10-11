@@ -1,0 +1,156 @@
+name: require-claude-review
+
+# Shared Claude reviewer (spec: registry docs/specs/2026-10-11-claude-reviewer-design.md).
+# Callers run it on pull_request_target with `secrets: inherit`. Three jobs, so that no job
+# holds both untrusted PR content and a write credential:
+#   prep   - read-only token, fetches the PR as flat data (never checks out the PR)
+#   review - Claude token only, no GitHub token; outputs schema-bound JSON
+#   post   - no LLM; validates, applies the approval rules, then uses the App token
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: NexusHomeLab/.github
+          ref: main
+          path: trusted
+          sparse-checkout: review
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Fetch the PR as data
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python -m review.prep --out "$GITHUB_WORKSPACE/pr-data"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pr-data
+          path: pr-data
+          retention-days: 3
+
+  review:
+    needs: prep
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: claude-review
+    permissions: {}
+    outputs:
+      conclusion: ${{ steps.claude.outputs.conclusion }}
+    steps:
+      - name: Mode
+        id: mode
+        run: echo "run=${{ vars.CLAUDE_REVIEW_MODE != 'off' }}" >> "$GITHUB_OUTPUT"
+      - if: steps.mode.outputs.run == 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: NexusHomeLab/.github
+          ref: main
+          path: trusted
+          sparse-checkout: review
+          persist-credentials: false
+      - if: steps.mode.outputs.run == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: pr-data
+          path: pr-data
+      - name: Load the verdict schema
+        if: steps.mode.outputs.run == 'true'
+        id: schema
+        run: echo "json=$(jq -c . trusted/review/verdict.schema.json)" >> "$GITHUB_OUTPUT"
+      - name: Claude review
+        if: steps.mode.outputs.run == 'true'
+        id: claude
+        uses: anthropics/claude-code-action/base-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        with:
+          prompt_file: trusted/review/REVIEW.md
+          settings: trusted/review/settings.json
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: >-
+            --restricted --safe-mode --strict-mcp-config
+            --tools Read,Grep,Glob --permission-mode dontAsk
+            --max-turns 30 --json-schema '${{ steps.schema.outputs.json }}'
+      - name: Save the verdict
+        if: steps.mode.outputs.run == 'true' && steps.claude.outputs.structured_output != ''
+        env:
+          VERDICT: ${{ steps.claude.outputs.structured_output }}
+        run: mkdir -p verdict && printf '%s' "$VERDICT" > verdict/verdict.json
+      - if: steps.mode.outputs.run == 'true' && steps.claude.outputs.structured_output != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verdict
+          path: verdict
+          retention-days: 3
+
+  post:
+    needs: [prep, review]
+    if: always() && needs.prep.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: claude-review-post
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: NexusHomeLab/.github
+          ref: main
+          path: trusted
+          sparse-checkout: review
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r trusted/review/requirements.txt
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: pr-data
+          path: pr-data
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        continue-on-error: true
+        with:
+          name: verdict
+          path: verdict
+      - name: Decide (read-only token)
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MODE: ${{ vars.CLAUDE_REVIEW_MODE }}
+          REVIEW_OK: ${{ needs.review.result == 'success' && needs.review.outputs.conclusion == 'success' }}
+        run: >-
+          python -m review.post decide --data "$GITHUB_WORKSPACE/pr-data"
+          --verdict "$GITHUB_WORKSPACE/verdict/verdict.json" --out "$GITHUB_WORKSPACE/review.json"
+      - name: Reviewer token (narrowed to contents read)
+        if: hashFiles('review.json') != ''
+        id: app
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_APP_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: write
+      - name: Submit the review
+        if: hashFiles('review.json') != ''
+        working-directory: trusted
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python -m review.post submit --review "$GITHUB_WORKSPACE/review.json"
