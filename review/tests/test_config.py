@@ -29,7 +29,8 @@ def test_workflow_jobs_and_permissions():
                    "--settings ${{ github.workspace }}/trusted/review/settings.json",
                    "--restricted", "--safe-mode", "--tools Read,Grep,Glob",
                    "permission-contents: read", "permission-pull-requests: write", "workflow_call",
-                   "environment: claude-review\n", "environment: claude-review-post\n", "!cancelled()"):
+                   "environment:\n      name: claude-review\n      deployment: false\n",
+                   "environment:\n      name: claude-review-post\n      deployment: false\n", "!cancelled()"):
         assert needle in wf
     assert "settings: trusted/review/settings.json" not in wf
     # the PR head is never checked out anywhere
