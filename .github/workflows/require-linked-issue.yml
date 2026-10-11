@@ -1,0 +1,56 @@
+name: require-linked-issue
+
+# Shared merge gate for every NexusHomeLab repo: a PR must reference the issue
+# that asked for it. Each repo calls this from its linked-issue.yml; the
+# required check is "linked-issue / check". No secrets, read-only token.
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      pull-requests: read
+    steps:
+      - name: PR references an issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          # Read the body now (not from the event) so "Re-run" sees the latest edit.
+          body=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.body // ""')
+
+          # 1. Linked in the sidebar (Development) or with a closing keyword.
+          linked=$(gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){closingIssuesReferences{totalCount}}}}' \
+            -F o="$OWNER" -F r="${REPO#*/}" -F n="$PR_NUMBER" --jq '.data.repository.pullRequest.closingIssuesReferences.totalCount')
+          if [ "$linked" -gt 0 ]; then echo "Linked to $linked issue(s)."; exit 0; fi
+
+          # 2. An issue in another org repo: OWNER/repo#N or its issues URL. This token
+          #    can only read this repo, so these are accepted by format.
+          other=$(grep -oiE "(github\.com/)?$OWNER/[A-Za-z0-9._-]+(#|/issues/)[0-9]+" <<<"$body" \
+            | grep -viE "$OWNER/${REPO#*/}(#|/issues/)" | head -1 || true)
+          if [ -n "$other" ]; then echo "References $other."; exit 0; fi
+
+          # 3. An issue in this repo: #N or this repo's issue URL. Must be a real issue, not a PR.
+          for n in $(grep -oiE "(^|[^A-Za-z0-9_/.-])#[0-9]+|$REPO(#|/issues/)[0-9]+" <<<"$body" | grep -oE '[0-9]+$' | sort -un); do
+            if [ "$(gh api "repos/$REPO/issues/$n" --jq '.pull_request == null' 2>/dev/null)" = true ]; then
+              echo "References issue #$n."; exit 0
+            fi
+          done
+
+          cat <<MSG
+          ::error::This PR isn't linked to an issue. Edit the PR description and add one of:
+            Closes #N                      (this PR finishes issue N; it closes on merge)
+            Refs #N                        (related or partial work; the issue stays open)
+            Refs $OWNER/<repo>#N    (an issue in another repo)
+          The check re-runs when you save the description.
+          MSG
+          exit 1
