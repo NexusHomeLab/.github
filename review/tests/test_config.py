@@ -40,6 +40,7 @@ def test_workflow_jobs_and_permissions():
 def test_post_job_installs_hash_pinned_requirements():
     wf = (ROOT / ".github/workflows/require-claude-review.yml").read_text()
     assert "pip install --require-hashes --only-binary=:all: -r trusted/review/requirements-post.txt" in wf
+    assert '- run: "pip install --require-hashes' in wf  # unquoted, `:all: ` is invalid YAML
     assert "pip install jsonschema==" not in wf
 
 
