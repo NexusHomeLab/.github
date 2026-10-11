@@ -1,0 +1,15 @@
+name: linked-issue
+
+# Every PR must reference an issue. The logic lives in NexusHomeLab/.github.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  linked-issue:
+    uses: NexusHomeLab/.github/.github/workflows/require-linked-issue.yml@main
+    permissions:
+      issues: read
+      pull-requests: read
