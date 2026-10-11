@@ -18,6 +18,19 @@ which manages every repo's settings and rulesets.
 - **Required checks must pass.** Nobody can bypass them, the owner included.
 - **One approval**, given after the last push. Review threads must be resolved.
 - **Squash merge only, linear history.** One commit per PR lands on `main`.
+- **No secrets in any commit.** The required check `secret-scan / gitleaks` scans every
+  commit in the PR, so deleting a secret in a later commit doesn't help: rotate it, then
+  rewrite the branch.
+- **Only the owner changes workflows** (`.github/**`). PR workflows run from the PR's
+  branch with the repo's secrets, so a pushed workflow change could leak them. Private
+  repos reject the push; public repos need the owner's code-owner review.
+
+### Secrets in workflows
+
+- Put secrets in an **environment limited to `main`**, never in plain repo secrets.
+  A workflow running from a PR branch can't reach them, however it's edited.
+- A workflow that needs a secret on PRs uses `pull_request_target` (it runs `main`'s
+  version of the workflow) and **never checks out or runs the PR's code**.
 
 ## Conventions
 
