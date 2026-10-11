@@ -32,7 +32,28 @@ def _get(path: str, accept: str = "application/vnd.github+json") -> bytes:
         return resp.read()
 
 
-def make_facts(pr: dict, files: list[dict], repo: str, diff_available: bool) -> dict:
+MAX_LINE_CHARS = 2000
+
+
+def _shown(content: bytes | None) -> bool:
+    """Whether build_files_txt includes this content."""
+    if content is None or len(content) > MAX_FILE_BYTES or b"\x00" in content:
+        return False
+    try:
+        content.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
+def skipped_paths(files: list[dict], entries: list[tuple[str, bytes | None]]) -> list[str]:
+    """Changed (not deleted) files whose content Claude was not shown."""
+    removed = {f["filename"] for f in files if f["status"] == "removed"}
+    skipped = [path for path, content in entries if path not in removed and not _shown(content)]
+    return skipped + [f["filename"] for f in files[len(entries):] if f["status"] != "removed"]
+
+
+def make_facts(pr: dict, files: list[dict], repo: str, diff_available: bool, skipped: list[str], diff: str) -> dict:
     paths = [f["filename"] for f in files] + [f["previous_filename"] for f in files if f.get("previous_filename")]
     return {
         "head_sha": pr["head"]["sha"],
@@ -40,6 +61,11 @@ def make_facts(pr: dict, files: list[dict], repo: str, diff_available: bool) -> 
         "lines_changed": pr["additions"] + pr["deletions"],
         "files_changed": pr["changed_files"],
         "diff_available": diff_available,
+        "skipped": skipped,
+        "long_lines": any(
+            len(line) > MAX_LINE_CHARS + 1 for line in diff.split("\n")
+            if line.startswith("+") and not line.startswith("+++ ")
+        ),
     }
 
 
@@ -103,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     }, indent=2))
     (out / "pr.diff").write_text(diff)
     (out / "files.txt").write_text(build_files_txt(entries))
-    (out / "facts.json").write_text(json.dumps(make_facts(pr, files, repo, diff_available), indent=2))
+    (out / "facts.json").write_text(json.dumps(make_facts(pr, files, repo, diff_available, skipped_paths(files, entries), diff), indent=2))
     return 0
 
 

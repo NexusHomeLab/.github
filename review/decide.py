@@ -40,6 +40,8 @@ class Facts:
     lines_changed: int
     files_changed: int
     diff_available: bool
+    skipped: list[str]
+    long_lines: bool
 
 
 def validate(verdict: object) -> list[str]:
@@ -101,6 +103,11 @@ def decide(verdict, facts: Facts, mode: str, review_ok: bool, current_head: str,
         )
     if not facts.diff_available:
         reasons.append("the diff couldn't be fetched")
+    if facts.skipped:
+        shown = ", ".join(f"`{p}`" for p in facts.skipped[:10])
+        reasons.append(f"{len(facts.skipped)} file(s) not shown to Claude (binary, too large or unavailable): {shown}")
+    if facts.long_lines:
+        reasons.append("a changed line is longer than 2000 characters")
 
     if mode == "approve" and not reasons:
         event = "APPROVE"

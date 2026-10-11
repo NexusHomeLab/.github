@@ -14,7 +14,8 @@ DIFF = """diff --git a/src/app.py b/src/app.py
 
 
 def facts(**kw):
-    base = dict(head_sha=HEAD, guarded=[], lines_changed=3, files_changed=1, diff_available=True)
+    base = dict(head_sha=HEAD, guarded=[], lines_changed=3, files_changed=1, diff_available=True,
+                skipped=[], long_lines=False)
     return Facts(**{**base, **kw})
 
 
@@ -147,3 +148,15 @@ def test_findings_outside_diff_go_to_body():
     r = run(verdict("comment", [finding(line=99), finding(path="gone.py", line=1)]))
     assert r.comments == []
     assert "`src/app.py:99`" in r.body and "`gone.py:1`" in r.body
+
+
+def test_skipped_files_block_approval():
+    r = run(f=facts(skipped=["img.png", "big.txt"]))
+    assert r.event == "COMMENT"
+    assert "2 file(s) not shown to Claude (binary, too large or unavailable): `img.png`, `big.txt`" in r.body
+
+
+def test_long_lines_block_approval():
+    r = run(f=facts(long_lines=True))
+    assert r.event == "COMMENT"
+    assert "a changed line is longer than 2000 characters" in r.body
