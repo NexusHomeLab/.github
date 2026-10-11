@@ -1,0 +1,24 @@
+name: claude-review
+
+# Claude reviews every PR; the logic lives in NexusHomeLab/.github.
+# pull_request_target: runs main's copy of this file, never the PR's.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  claude-review:
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: NexusHomeLab/.github/.github/workflows/require-claude-review.yml@main
+    permissions:
+      contents: read
+      pull-requests: read
+    secrets: inherit
