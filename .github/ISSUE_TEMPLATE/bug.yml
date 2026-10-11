@@ -1,0 +1,30 @@
+name: Bug
+description: Something behaves differently from how it should.
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include error messages or logs.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Steps, commands or inputs. Say so if you can't reproduce it.
+    validations:
+      required: true
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: Usually "fixed, with a test that would have caught it".
+    validations:
+      required: true

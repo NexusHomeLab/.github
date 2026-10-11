@@ -1,0 +1,24 @@
+name: Task
+description: A piece of work with a clear finish line.
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What
+      description: The change, in a sentence or two.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The problem it solves or what it unblocks.
+    validations:
+      required: true
+  - type: textarea
+    id: done-when
+    attributes:
+      label: Done when
+      description: How we'll know it's finished. Something you can check, not "it works".
+    validations:
+      required: true
