@@ -7,7 +7,7 @@ from fnmatch import fnmatchcase
 # Matched against the file name, anywhere in the repo.
 NAMES = [
     "CODEOWNERS", "CLAUDE.md", "CLAUDE.local.md", "AGENTS.md", ".claude.json", ".mcp.json", ".gitleaks*",
-    ".gitmodules", "Dockerfile*", "Makefile", ".npmrc", ".yarnrc*", ".pre-commit-config.yaml",
+    ".gitmodules", "Dockerfile*", "Makefile", "GNUmakefile", ".npmrc", ".yarnrc*", ".pre-commit-config.yaml",
     "package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock",
     "bun.lock", "bun.lockb",
     "requirements*.txt", "pyproject.toml", "setup.py", "setup.cfg", "Pipfile", "Pipfile.lock",
@@ -39,7 +39,7 @@ def _is_guarded(path: str, repo: str) -> bool:
     parts = path.split("/")
     if any(p in GUARDED_DIRS for p in parts[:-1]):
         return True
-    if any(fnmatchcase(parts[-1], pattern) for pattern in NAMES):
+    if any(fnmatchcase(parts[-1].lower(), pattern.lower()) for pattern in NAMES):
         return True
     return any(path.startswith(prefix) for prefix in REPO_PREFIXES.get(repo, ()))
 

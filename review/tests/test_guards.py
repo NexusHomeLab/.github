@@ -62,3 +62,8 @@ def test_leading_dot_slash_and_slash_are_normalised():
         "./.github/workflows/x.yml",
         "/package.json",
     ]
+
+
+def test_names_match_case_insensitively():
+    paths = ["makefile", "GNUmakefile", "dockerfile", "PACKAGE.JSON"]
+    assert guarded_paths(paths, "homelab") == paths
