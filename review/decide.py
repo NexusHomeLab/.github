@@ -18,8 +18,14 @@ SECRET_PATTERNS = [
         r"sk-ant-[A-Za-z0-9_-]{10,}",
         r"gh[pousr]_[A-Za-z0-9]{20,}",
         r"github_pat_[A-Za-z0-9_]{20,}",
-        r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+        r"-----BEGIN [A-Z0-9 ]+-----",
         r"AKIA[0-9A-Z]{16}",
+        r"(?i)aws.{0,20}?['\"=: ]+[A-Za-z0-9/+=]{40}",
+        r"xox[abprs]-[A-Za-z0-9-]{10,}",
+        r"AIza[0-9A-Za-z_-]{35}",
+        r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}",
+        r"\bsk-[A-Za-z0-9_-]{20,}",
+        r"(?i)\b(password|passwd|secret|token|api[_-]?key)\b\s*[:=]\s*['\"]?[^\s'\"]{8,}",
     )
 ]
 FOOTER = "\n\n---\n_Automated review by nexus-claude-reviewer (mode `{mode}`)._"
@@ -53,7 +59,7 @@ def diff_lines(diff: str) -> dict[str, set[int]]:
     """Line numbers on the new side of the diff, per file: the only lines GitHub accepts inline comments on."""
     lines: dict[str, set[int]] = {}
     path, new_line = None, 0
-    for raw in diff.splitlines():
+    for raw in diff.split("\n"):
         if raw.startswith("+++ "):
             target = raw[4:]
             path = target[2:] if target.startswith("b/") else None
@@ -80,8 +86,7 @@ def decide(verdict, facts: Facts, mode: str, review_ok: bool, current_head: str,
         return _comment(mode, "Claude review didn't finish (error, timeout or turn limit). Not approving.")
     if validate(verdict):
         return _comment(mode, "Claude review output was invalid. Not approving.")
-    if find_secrets(json.dumps(verdict)):
-        return _comment(mode, "Claude review withheld: its output looked like it contained a secret. Not approving.")
+    withheld = "Claude review withheld: its output looked like it contained a secret. Not approving."
 
     blocking = [f for f in verdict["findings"] if f["severity"] == "blocking"]
     reasons = []
@@ -113,14 +118,20 @@ def decide(verdict, facts: Facts, mode: str, review_ok: bool, current_head: str,
     comments, elsewhere = [], []
     for f in verdict["findings"]:
         text = f"**{f['severity']}**: {f['body']}"
-        if f["line"] in on_diff.get(f["path"], set()):
-            comments.append({"path": f["path"], "line": f["line"], "side": "RIGHT", "body": text})
+        line = int(f["line"])
+        if line in on_diff.get(f["path"], set()):
+            comments.append({"path": f["path"], "line": line, "side": "RIGHT", "body": text})
         else:
-            elsewhere.append(f"- `{f['path']}:{f['line']}` {text}")
+            elsewhere.append(f"- `{f['path']}:{line}` {text}")
 
     body = ["## Claude review", "", verdict["summary"]]
     if elsewhere:
         body += ["", "### Findings outside the diff", *elsewhere]
     if mode == "approve" and reasons:
         body += ["", "**Not approving:** " + "; ".join(reasons) + "."]
-    return Review(event, "\n".join(body) + FOOTER.format(mode=mode), comments)
+    text = "\n".join(body)
+
+    # Scan exactly what would be posted, not the raw verdict.
+    if find_secrets(text) or any(find_secrets(c["body"]) for c in comments):
+        return _comment(mode, withheld)
+    return Review(event, text + FOOTER.format(mode=mode), comments)

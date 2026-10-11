@@ -50,6 +50,36 @@ def test_find_secrets():
     assert find_secrets("no secrets here") == []
 
 
+def test_find_secrets_wider():
+    samples = [
+        "-----BEGIN OPENSSH PRIVATE KEY-----",
+        "-----BEGIN CERTIFICATE-----",
+        "aws_secret_access_key = " + "A" * 40,
+        "xoxb-" + "1" * 20,
+        "AIza" + "B" * 35,
+        "eyJ" + "a" * 12 + ".eyJ" + "b" * 12,
+        "sk-" + "c" * 24,
+        "password: hunter2hunter2",
+    ]
+    for sample in samples:
+        assert find_secrets(sample) != [], sample
+    assert find_secrets("the summary mentions tokens and passwords") == []
+
+
+def test_secret_in_finding_path_withheld():
+    r = run(verdict("comment", [finding(path="ghp_" + "C" * 36 + ".py", line=1)]))
+    assert r.event == "COMMENT" and "withheld" in r.body and r.comments == []
+
+
+def test_non_approve_verdict_without_blocking_comments():
+    r = run(verdict("comment"))
+    assert r.event == "COMMENT" and "Claude's verdict is `comment`" in r.body
+
+
+def test_unknown_mode_never_approves():
+    assert run(mode="yolo").event == "COMMENT"
+
+
 def test_approves_clean_small_review():
     r = run()
     assert r.event == "APPROVE"
@@ -83,7 +113,6 @@ def test_incomplete_or_failed_review_never_approves():
     assert run(verdict(complete=False)).event == "COMMENT"
     r = run(ok=False)
     assert r.event == "COMMENT" and "didn't finish" in r.body
-    assert run(v=None, ok=True).event == "APPROVE"  # sanity: default verdict approves
     r = decide(None, facts(), "approve", True, HEAD, DIFF)
     assert r.event == "COMMENT" and "didn't finish" in r.body
 
