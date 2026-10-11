@@ -11,7 +11,7 @@ import urllib.request
 from dataclasses import asdict
 from pathlib import Path
 
-from review.decide import Facts, Review, decide
+from review.model import Review
 
 API = "https://api.github.com"
 
@@ -38,6 +38,8 @@ def review_request(review: Review, head_sha: str) -> dict:
 
 
 def cmd_decide(args) -> int:
+    from review.decide import Facts, decide  # lazy: pulls in jsonschema, which submit must not load
+
     repo, number = os.environ["REPO"], os.environ["PR_NUMBER"]
     data = Path(args.data)
     facts = Facts(**json.loads((data / "facts.json").read_text()))

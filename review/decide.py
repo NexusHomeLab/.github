@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
+
+from review.model import Review  # noqa: F401  (re-exported)
 
 SCHEMA = json.loads((Path(__file__).parent / "verdict.schema.json").read_text())
 MAX_LINES = 400
@@ -38,13 +40,6 @@ class Facts:
     lines_changed: int
     files_changed: int
     diff_available: bool
-
-
-@dataclass
-class Review:
-    event: str
-    body: str
-    comments: list[dict] = field(default_factory=list)
 
 
 def validate(verdict: object) -> list[str]:

@@ -20,3 +20,13 @@ def test_load_verdict_missing_or_unparseable_is_none(tmp_path):
     good = tmp_path / "good.json"
     good.write_text(json.dumps({"verdict": "approve"}))
     assert load_verdict(good) == {"verdict": "approve"}
+
+
+def test_submit_path_does_not_import_jsonschema():
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    code = "import sys, review.post; assert 'jsonschema' not in sys.modules"
+    subprocess.run([sys.executable, "-c", code], cwd=root, check=True)
