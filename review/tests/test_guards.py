@@ -20,9 +20,15 @@ def test_ordinary_files_are_not_guarded():
     assert guarded_paths(["src/blocker.py", "README.md", "docs/locking.md"], "homelab") == []
 
 
-def test_registry_pipeline_is_guarded_but_data_is_not():
-    paths = ["modules/github-repo/main.tf", "scripts/x.py", "data/github/repos/fleet.yaml"]
-    assert guarded_paths(paths, "registry") == ["modules/github-repo/main.tf", "scripts/x.py"]
+def test_registry_pipeline_and_data_are_guarded_but_docs_are_not():
+    # registry data is org policy (visibility, required checks, profiles, reviewer
+    # flags): owner decision 2026-10-11, the bot never approves it.
+    paths = ["modules/github-repo/main.tf", "scripts/x.py", "data/github/repos/fleet.yaml", "docs/x.md"]
+    assert guarded_paths(paths, "registry") == ["modules/github-repo/main.tf", "scripts/x.py", "data/github/repos/fleet.yaml"]
+
+
+def test_data_is_only_guarded_in_registry():
+    assert guarded_paths(["data/x.yaml"], "homelab") == []
 
 
 def test_everything_in_the_dot_github_repo_is_guarded():

@@ -22,7 +22,7 @@ GUARDED_DIRS = {".github", ".claude", ".husky", ".devcontainer"}
 
 # Path prefixes guarded per repo ("" guards everything).
 REPO_PREFIXES = {
-    "registry": ("scripts/", "schemas/", "modules/", "stacks/", "bootstrap/"),
+    "registry": ("data/", "scripts/", "schemas/", "modules/", "stacks/", "bootstrap/"),
     ".github": ("",),
 }
 
