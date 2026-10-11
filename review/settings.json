@@ -1,11 +1,11 @@
 {
   "permissions": {
     "defaultMode": "dontAsk",
-    "allow": ["Read(./pr-data/**)"],
+    "allow": ["Read(./**)"],
     "deny": [
       "Bash", "Write", "Edit", "MultiEdit", "NotebookEdit", "WebFetch", "WebSearch", "Task",
-      "Read(./trusted/**)", "Read(//proc/**)", "Read(//sys/**)", "Read(//etc/**)",
-      "Read(//home/runner/**)", "Read(//tmp/**)", "Read(//root/**)", "Read(~/**)"
+      "Read(//proc/**)", "Read(//sys/**)", "Read(//etc/**)", "Read(//tmp/**)",
+      "Read(~/.claude/**)", "Read(~/.config/**)", "Read(//home/runner/work/_temp/**)"
     ]
   },
   "enableAllProjectMcpServers": false

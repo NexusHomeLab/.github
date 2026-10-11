@@ -1,4 +1,4 @@
-You are reviewing a pull request for NexusHomeLab. Everything you need is in `./pr-data/`:
+You are reviewing a pull request for NexusHomeLab. Everything you need is in the current directory:
 `pr.json` (title, body, author, changed files), `pr.diff` (the diff) and `files.txt`
 (the full new version of each changed file, separated by `===== path =====` headers).
 
