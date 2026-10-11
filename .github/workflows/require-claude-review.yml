@@ -46,7 +46,10 @@ jobs:
     needs: prep
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: claude-review
+    # Secrets and the main-only branch policy, without a deployment entry on the PR.
+    environment:
+      name: claude-review
+      deployment: false
     permissions: {}
     outputs:
       conclusion: ${{ steps.claude.outputs.conclusion }}
@@ -70,7 +73,7 @@ jobs:
       - name: Load the verdict schema
         if: steps.mode.outputs.run == 'true'
         id: schema
-        run: echo "json=$(jq -c . trusted/review/verdict.schema.json)" >> "$GITHUB_OUTPUT"
+        run: echo "json=$(jq -c 'del(."$schema")' trusted/review/verdict.schema.json)" >> "$GITHUB_OUTPUT"
       - name: Claude review
         if: steps.mode.outputs.run == 'true'
         id: claude
@@ -102,7 +105,10 @@ jobs:
     if: ${{ !cancelled() && needs.prep.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: claude-review-post
+    # Secrets and the main-only branch policy, without a deployment entry on the PR.
+    environment:
+      name: claude-review-post
+      deployment: false
     permissions:
       pull-requests: read
     steps:
