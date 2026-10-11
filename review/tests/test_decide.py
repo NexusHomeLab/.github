@@ -160,3 +160,17 @@ def test_long_lines_block_approval():
     r = run(f=facts(long_lines=True))
     assert r.event == "COMMENT"
     assert "a changed line is longer than 2000 characters" in r.body
+
+
+def test_approval_puts_suggestions_in_the_body_not_in_threads():
+    # protect-main requires every review thread resolved, so inline nits on an
+    # approved PR would block the merge the approval is meant to allow (homelab#14).
+    r = run(verdict("approve", [finding("nit", line=2, body="Name the constant.")]))
+    assert r.event == "APPROVE"
+    assert r.comments == []
+    assert "### Suggestions" in r.body and "`src/app.py:2` **nit**: Name the constant." in r.body
+
+
+def test_non_approving_reviews_keep_inline_comments():
+    r = run(verdict("comment", [finding("suggestion", line=2)]))
+    assert r.event == "COMMENT" and len(r.comments) == 1
