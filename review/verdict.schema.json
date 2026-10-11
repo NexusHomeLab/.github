@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings", "complete"],
+  "properties": {
+    "verdict": { "enum": ["approve", "request_changes", "comment"] },
+    "summary": { "type": "string", "maxLength": 4000 },
+    "complete": { "type": "boolean" },
+    "findings": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "line", "severity", "body"],
+        "properties": {
+          "path": { "type": "string" },
+          "line": { "type": "integer", "minimum": 1 },
+          "severity": { "enum": ["blocking", "suggestion", "nit"] },
+          "body": { "type": "string", "maxLength": 2000 }
+        }
+      }
+    }
+  }
+}
