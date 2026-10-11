@@ -35,3 +35,9 @@ def test_workflow_jobs_and_permissions():
     # the PR head is never checked out anywhere
     assert "pull_request.head.sha" not in wf
     assert "ref: ${{ github.event.pull_request.head" not in wf
+
+
+def test_post_job_installs_hash_pinned_requirements():
+    wf = (ROOT / ".github/workflows/require-claude-review.yml").read_text()
+    assert "pip install --require-hashes --only-binary=:all: -r trusted/review/requirements-post.txt" in wf
+    assert "pip install jsonschema==" not in wf
