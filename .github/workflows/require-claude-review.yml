@@ -153,6 +153,7 @@ jobs:
         working-directory: trusted
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
+          BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: python -m review.post submit --review "$GITHUB_WORKSPACE/review.json"

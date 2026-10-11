@@ -37,6 +37,17 @@ def review_request(review: Review, head_sha: str) -> dict:
     return {"commit_id": head_sha, "event": review.event, "body": review.body, "comments": review.comments}
 
 
+def stale_change_requests(reviews: list[dict], bot_login: str) -> list[int]:
+    """GitHub keeps CHANGES_REQUESTED until dismissed; later COMMENT reviews don't clear it."""
+    return [r["id"] for r in reviews if r["state"] == "CHANGES_REQUESTED" and r["user"]["login"] == bot_login]
+
+
+def fold_comments_into_body(review: Review) -> Review:
+    lines = [f"- `{c['path']}:{c['line']}` {c['body']}" for c in review.comments]
+    body = review.body + "\n\n### Findings (inline comments rejected by GitHub)\n" + "\n".join(lines)
+    return Review(review.event, body, [])
+
+
 def cmd_decide(args) -> int:
     from review.decide import Facts, decide  # lazy: pulls in jsonschema, which submit must not load
 
@@ -64,14 +75,19 @@ def cmd_submit(args) -> int:
     head = saved.pop("head_sha")
     review = Review(**saved)
     repo, number = os.environ["REPO"], os.environ["PR_NUMBER"]
+    base = f"/repos/{repo}/pulls/{number}"
+    if review.event != "REQUEST_CHANGES":
+        for stale in stale_change_requests(_api("GET", f"{base}/reviews?per_page=100"), os.environ["BOT_LOGIN"]):
+            _api("PUT", f"{base}/reviews/{stale}/dismissals",
+                 {"message": "Superseded by a newer Claude review.", "event": "DISMISS"})
     try:
-        _api("POST", f"/repos/{repo}/pulls/{number}/reviews", review_request(review, head))
+        _api("POST", f"{base}/reviews", review_request(review, head))
     except urllib.error.HTTPError as err:
         if err.code != 422 or not review.comments:
             raise
-        # An inline comment GitHub rejects (e.g. a line outside the diff): post without them.
-        print("Inline comments rejected; posting the summary only.", file=sys.stderr)
-        _api("POST", f"/repos/{repo}/pulls/{number}/reviews", review_request(Review(review.event, review.body, []), head))
+        # An inline comment GitHub rejects (e.g. a line outside the diff): keep the findings in the body.
+        print("Inline comments rejected; posting them in the summary.", file=sys.stderr)
+        _api("POST", f"{base}/reviews", review_request(fold_comments_into_body(review), head))
     print(f"Posted {review.event}.")
     return 0
 

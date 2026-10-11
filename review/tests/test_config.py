@@ -41,3 +41,8 @@ def test_post_job_installs_hash_pinned_requirements():
     wf = (ROOT / ".github/workflows/require-claude-review.yml").read_text()
     assert "pip install --require-hashes --only-binary=:all: -r trusted/review/requirements-post.txt" in wf
     assert "pip install jsonschema==" not in wf
+
+
+def test_submit_step_knows_the_bot_login():
+    wf = (ROOT / ".github/workflows/require-claude-review.yml").read_text()
+    assert "BOT_LOGIN: ${{ steps.app.outputs.app-slug }}[bot]" in wf
