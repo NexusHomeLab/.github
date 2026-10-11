@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": ["Read(./**)"],
+    "deny": [
+      "Bash", "Write", "Edit", "MultiEdit", "NotebookEdit", "WebFetch", "WebSearch", "Task",
+      "Read(//proc/**)", "Read(//sys/**)", "Read(//etc/**)", "Read(//tmp/**)",
+      "Read(~/.claude/**)", "Read(~/.config/**)", "Read(//home/runner/work/_temp/**)"
+    ]
+  },
+  "enableAllProjectMcpServers": false
+}
