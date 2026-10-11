@@ -126,7 +126,17 @@ def decide(verdict, facts: Facts, mode: str, review_ok: bool, current_head: str,
         else:
             elsewhere.append(f"- `{f['path']}:{line}` {text}")
 
+    if event == "APPROVE" and comments:
+        # Every review thread must be resolved before merging (protect-main), so
+        # an approval carries its non-blocking findings in the body instead.
+        suggestions = [f"- `{c['path']}:{c['line']}` {c['body']}" for c in comments]
+        comments = []
+    else:
+        suggestions = []
+
     body = ["## Claude review", "", verdict["summary"]]
+    if suggestions:
+        body += ["", "### Suggestions", *suggestions]
     if elsewhere:
         body += ["", "### Findings outside the diff", *elsewhere]
     if mode == "approve" and reasons:
